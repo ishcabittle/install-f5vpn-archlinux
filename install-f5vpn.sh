@@ -40,6 +40,7 @@ setcap cap_kill+ep /opt/f5/vpn/f5vpn-bin
 cat > /opt/f5/vpn/f5vpn << 'WRAPPER'
 #!/bin/bash
 export QT_QPA_PLATFORM=xcb
+export LD_LIBRARY_PATH="/opt/f5/vpn/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec /opt/f5/vpn/f5vpn-bin "$@"
 WRAPPER
 chmod +x /opt/f5/vpn/f5vpn
@@ -56,6 +57,9 @@ for size in 16 24 32 48 64 96 128 256 512 1024; do
     mkdir -p "$dir"
     cp /opt/f5/vpn/logos/${size}x${size}.png "$dir/f5vpn.png"
 done
+
+echo "Setting f5vpn as default handler for f5-vpn:// URLs..."
+xdg-mime default com.f5.f5vpn.desktop x-scheme-handler/f5-vpn
 
 echo "Extracting $F5EPI_DEB..."
 mkdir -p "$TMPDIR/f5epi"
@@ -74,6 +78,19 @@ export LD_LIBRARY_PATH="/opt/f5/epi/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec /opt/f5/epi/f5epi-bin "$@"
 WRAPPER
 chmod +x /opt/f5/epi/f5epi
+
+echo "Installing f5epi desktop integration..."
+cp /opt/f5/epi/com.f5.f5epi.desktop /usr/share/applications/
+cp /opt/f5/epi/com.f5.f5epi.service /usr/share/dbus-1/services/
+
+for size in 16 24 32 48 64 96 128 256 512 1024; do
+    dir="/usr/share/icons/hicolor/${size}x${size}/apps"
+    mkdir -p "$dir"
+    cp /opt/f5/epi/logos/${size}x${size}.png "$dir/f5epi.png"
+done
+
+echo "Setting f5epi as default handler for f5-epi:// URLs..."
+xdg-mime default com.f5.f5epi.desktop x-scheme-handler/f5-epi
 
 echo "Installing compatible libxml2 for bundled Qt5WebKit..."
 mkdir -p "$TMPDIR/libxml2"
