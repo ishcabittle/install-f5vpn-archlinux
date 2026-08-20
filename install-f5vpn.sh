@@ -4,10 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEB_FILE="${SCRIPT_DIR}/linux_f5vpn.x86_64.deb"
 
+F5EPI_DEB="${SCRIPT_DIR}/linux_f5epi.x86_64.deb"
 LIBXML2_DEB="${SCRIPT_DIR}/libxml2-old.deb"
 ICU60_DEB="${SCRIPT_DIR}/libicu60.deb"
 
-for f in "$DEB_FILE" "$LIBXML2_DEB" "$ICU60_DEB"; do
+for f in "$DEB_FILE" "$F5EPI_DEB" "$LIBXML2_DEB" "$ICU60_DEB"; do
     if [[ ! -f "$f" ]]; then
         echo "Error: $f not found" >&2
         exit 1
@@ -55,6 +56,24 @@ for size in 16 24 32 48 64 96 128 256 512 1024; do
     mkdir -p "$dir"
     cp /opt/f5/vpn/logos/${size}x${size}.png "$dir/f5vpn.png"
 done
+
+echo "Extracting $F5EPI_DEB..."
+mkdir -p "$TMPDIR/f5epi"
+ar x --output="$TMPDIR/f5epi" "$F5EPI_DEB"
+
+echo "Installing f5epi files to /opt/f5/epi/..."
+mkdir -p /opt/f5/epi
+tar xzf "$TMPDIR/f5epi/data.tar.gz" -C /
+
+echo "Creating f5epi Qt platform wrapper script..."
+mv /opt/f5/epi/f5epi /opt/f5/epi/f5epi-bin
+cat > /opt/f5/epi/f5epi << 'WRAPPER'
+#!/bin/bash
+export QT_QPA_PLATFORM=xcb
+export LD_LIBRARY_PATH="/opt/f5/epi/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec /opt/f5/epi/f5epi-bin "$@"
+WRAPPER
+chmod +x /opt/f5/epi/f5epi
 
 echo "Installing compatible libxml2 for bundled Qt5WebKit..."
 mkdir -p "$TMPDIR/libxml2"
