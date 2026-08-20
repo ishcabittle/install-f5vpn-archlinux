@@ -4,18 +4,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEB_FILE="${SCRIPT_DIR}/linux_f5vpn.x86_64.deb"
 
-if [[ ! -f "$DEB_FILE" ]]; then
-    echo "Error: $DEB_FILE not found" >&2
-    exit 1
-fi
+LIBXML2_DEB="${SCRIPT_DIR}/libxml2-old.deb"
+ICU60_DEB="${SCRIPT_DIR}/libicu60.deb"
+
+for f in "$DEB_FILE" "$LIBXML2_DEB" "$ICU60_DEB"; do
+    if [[ ! -f "$f" ]]; then
+        echo "Error: $f not found" >&2
+        exit 1
+    fi
+done
 
 if [[ $EUID -ne 0 ]]; then
     echo "Error: must be run as root" >&2
     exit 1
 fi
 
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+TMPDIR="${SCRIPT_DIR}/tmp"
+#trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Extracting $DEB_FILE..."
 ar x --output="$TMPDIR" "$DEB_FILE"
@@ -52,9 +57,8 @@ for size in 16 24 32 48 64 96 128 256 512 1024; do
 done
 
 echo "Installing compatible libxml2 for bundled Qt5WebKit..."
-LIBXML2_DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/libx/libxml2/libxml2_2.9.4+dfsg1-6.1ubuntu1.9_amd64.deb"
-curl -sLo "$TMPDIR/libxml2-old.deb" "$LIBXML2_DEB_URL"
-ar x --output="$TMPDIR/libxml2" "$TMPDIR/libxml2-old.deb"
+mkdir -p "$TMPDIR/libxml2"
+ar x --output="$TMPDIR/libxml2" "$LIBXML2_DEB"
 tar xJf "$TMPDIR/libxml2/data.tar.xz" -C "$TMPDIR/libxml2" --wildcards '*/libxml2.so.2*'
 LIBXML2_FILE="$(find "$TMPDIR/libxml2" -name 'libxml2.so.2.*' -not -name 'libxml2.so.2' -print -quit)"
 LIBXML2_SONAME="$(basename "$LIBXML2_FILE")"
@@ -63,9 +67,8 @@ ln -sf "$LIBXML2_SONAME" /opt/f5/vpn/lib/libxml2.so.2
 echo "Installed /opt/f5/vpn/lib/$LIBXML2_SONAME"
 
 echo "Installing compatible ICU 60 for f5vpn binary..."
-ICU60_DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu60_60.2-3ubuntu3_amd64.deb"
-curl -sLo "$TMPDIR/libicu60.deb" "$ICU60_DEB_URL"
-ar x --output="$TMPDIR/libicu60" "$TMPDIR/libicu60.deb"
+mkdir -p "$TMPDIR/libicu60"
+ar x --output="$TMPDIR/libicu60" "$ICU60_DEB"
 tar xJf "$TMPDIR/libicu60/data.tar.xz" -C "$TMPDIR/libicu60" --wildcards '*/lib*.so.60*'
 for lib in libicuuc.so.60.2 libicudata.so.60.2 libicui18n.so.60.2; do
     cp "$TMPDIR/libicu60/usr/lib/x86_64-linux-gnu/$lib" /opt/f5/vpn/lib/
